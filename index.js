@@ -3,10 +3,11 @@ const path = require("path");
 const { Pool } = require("pg");
 const copyFrom = require("pg-copy-streams").from;
 
-const connection_string = process.env.DATABASE_URL
+const connection_string = process.env.DATABASE_URL;
 
 const DATASET_DIR = path.join(__dirname, "dataset");
 
+// https://www.kaggle.com/datasets/matteo2002/retail-dataset
 const TABLES = [
   {
     file: "customers.csv",
@@ -15,8 +16,8 @@ const TABLES = [
       CREATE TABLE customers (
         "CustomerID" INTEGER PRIMARY KEY,
         customer_type TEXT NOT NULL
-      )
-    `,
+        )
+        `,
   },
   {
     file: "products.csv",
@@ -41,7 +42,7 @@ const TABLES = [
         product_id INTEGER NOT NULL,
         quantity INTEGER NOT NULL
       )
-    `,
+      `,
   },
   {
     file: "invoice_items.csv",
@@ -53,8 +54,8 @@ const TABLES = [
         quantity INTEGER NOT NULL,
         price NUMERIC(10, 2) NOT NULL,
         line_total NUMERIC(12, 2) NOT NULL
-      )
-    `,
+        )
+        `,
   },
 ];
 
@@ -86,8 +87,12 @@ async function uploadTable(client, { file, table, ddl }) {
 
   await copyCsvToTable(client, table, filePath);
 
-  const { rows } = await client.query(`SELECT COUNT(*)::int AS count FROM ${table}`);
-  console.log(`  Done: ${rows[0].count.toLocaleString()} rows loaded into ${table}`);
+  const { rows } = await client.query(
+    `SELECT COUNT(*)::int AS count FROM ${table}`,
+  );
+  console.log(
+    `  Done: ${rows[0].count.toLocaleString()} rows loaded into ${table}`,
+  );
 }
 
 async function main() {
