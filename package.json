@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "upload": "node index.js",
+    "upload": "node popular.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
