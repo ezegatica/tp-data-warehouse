@@ -2,3 +2,4 @@
 node_modules/
 dataset.zip
 dataset/backup/
+__pycache__/
