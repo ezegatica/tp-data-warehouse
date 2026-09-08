@@ -703,6 +703,98 @@ def plot_10_timeline_consistency(df):
     print(f"  [OK] Guardado: {out_path}")
 
 
+# ==============================================================================
+# 11. COMPARATIVA DE TRANSFORMACIÓN: DATASET ORIGINAL VS. TRANSFORMADO
+# ==============================================================================
+def plot_11_transformation_before_after(curr_df):
+    backup_purchases = os.path.join(DATASET_DIR, "backup", "purchases.csv")
+    backup_items = os.path.join(DATASET_DIR, "backup", "invoice_items.csv")
+
+    if not (os.path.exists(backup_purchases) and os.path.exists(backup_items)):
+        print("  [SKIP] No se encontró el directorio dataset/backup/ para el gráfico 11.")
+        return
+
+    orig_p = pd.read_csv(backup_purchases)
+    orig_i = pd.read_csv(backup_items)
+    orig_p["date"] = pd.to_datetime(orig_p["date"])
+    orig_p["day_name"] = orig_p["date"].dt.day_name()
+    orig_p["line_total"] = orig_i["line_total"]
+
+    orig_stats = orig_p.groupby("day_name").agg(
+        invoices=("InvoiceID", "nunique"),
+        units=("quantity", "sum"),
+        revenue=("line_total", "sum")
+    ).reindex(DAY_ORDER)
+
+    curr_stats = curr_df.groupby("day_name").agg(
+        invoices=("InvoiceID", "nunique"),
+        units=("quantity", "sum"),
+        revenue=("line_total", "sum")
+    ).reindex(DAY_ORDER)
+
+    fig, axes = plt.subplots(1, 3, figsize=(19, 6))
+    style_figure(fig, axes)
+
+    metrics = [
+        ("invoices", "Afluencia (Facturas Únicas)", axes[0]),
+        ("units", "Volumen Físico (Unidades)", axes[1]),
+        ("revenue", "Recaudación Total ($ USD)", axes[2])
+    ]
+
+    x = np.arange(len(DAY_LABELS_SHORT))
+    width = 0.38
+
+    for col, title, ax in metrics:
+        o_vals = orig_stats[col].values
+        c_vals = curr_stats[col].values
+
+        ax.bar(x - width/2, o_vals, width, label="Original (Sin Descuentos)", color="#6C757D", edgecolor="black", linewidth=0.6, alpha=0.75)
+        ax.bar(x + width/2, c_vals, width, label="Sintético (Con Descuentos)", color=DAY_COLORS, edgecolor="black", linewidth=0.6)
+
+        ax.set_xticks(x)
+        ax.set_xticklabels(DAY_LABELS_SHORT, fontsize=9.5, fontweight="bold")
+        ax.set_title(title, fontsize=12.5, fontweight="bold", pad=12, color="#1D3557")
+
+        max_v = max(o_vals.max(), c_vals.max())
+        for i in range(len(x)):
+            diff_pct = ((c_vals[i] - o_vals[i]) / o_vals[i]) * 100
+            if abs(diff_pct) >= 4.0:
+                sign = "+" if diff_pct > 0 else ""
+                color_text = "#2A9D8F" if diff_pct > 0 else "#E63946"
+                ax.text(
+                    x[i] + width/2,
+                    c_vals[i] + (max_v * 0.02),
+                    f"{sign}{diff_pct:.0f}%",
+                    ha="center",
+                    va="bottom",
+                    fontsize=8.5,
+                    fontweight="bold",
+                    color=color_text
+                )
+
+        ax.set_ylim(0, max_v * 1.18)
+        if col == "revenue":
+            ax.yaxis.set_major_formatter(ticker.FuncFormatter(lambda y, _: f"${y/1e6:.1f}M"))
+        elif col == "units":
+            ax.yaxis.set_major_formatter(ticker.FuncFormatter(lambda y, _: f"{y/1e6:.1f}M u."))
+        else:
+            ax.yaxis.set_major_formatter(ticker.FuncFormatter(lambda y, _: f"{y/1e3:.0f}K"))
+
+    axes[0].legend(loc="upper left", frameon=True, facecolor="white", edgecolor="#D1D5DB", fontsize=9.5)
+
+    fig.suptitle(
+        "TRANSFORMACIÓN SINTÉTICA: DATASET ORIGINAL (GRIS) VS. DATASET MODELADO (COLOR)\n"
+        "Se observa el vaciamiento de Miércoles (-50% gente) y la explosión de demanda en Martes (+48% u.) y Viernes (+202% u.).",
+        fontsize=13.5, fontweight="bold", color="#0B132B", y=1.02
+    )
+
+    out_path = os.path.join(OUTPUT_DIR, "11_comparativa_transformacion_antes_despues.png")
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=200, bbox_inches="tight")
+    plt.close()
+    print(f"  [OK] Guardado: {out_path}")
+
+
 def main():
     print("=" * 80)
     print(" INICIANDO GENERACIÓN DE GRÁFICOS VISUALES PARA PRESENTACIÓN COMERCIAL ")
@@ -720,9 +812,10 @@ def main():
     plot_08_invoice_dispersion(df)
     plot_09_heatmap_matrix(df)
     plot_10_timeline_consistency(df)
+    plot_11_transformation_before_after(df)
 
     print("\n" + "=" * 80)
-    print(f" ¡Éxito! 10 gráficos generados en alta calidad en el directorio: {OUTPUT_DIR}")
+    print(f" ¡Éxito! 11 gráficos generados en alta calidad en el directorio: {OUTPUT_DIR}")
     print("=" * 80)
 
 

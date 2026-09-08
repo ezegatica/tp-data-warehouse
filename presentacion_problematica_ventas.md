@@ -208,6 +208,25 @@ A continuación se presenta la guía completa de diapositivas con sus respectivo
 
 ---
 
+### Diapositiva 11: Comparativa de la Transformación (Dataset Original vs. Sintético)
+**Archivo:** [`charts/11_comparativa_transformacion_antes_despues.png`](file:///d:/UP/tp-data-warehouse/charts/11_comparativa_transformacion_antes_despues.png)
+
+![Comparativa Antes vs Después](charts/11_comparativa_transformacion_antes_despues.png)
+
+* **Título del Slide:** Modelado del Caso: Evidencia de la Distorsión Inducida por Promociones.
+* **Epígrafe formal:**  
+  > *Figura 11: Comparativa dimensional entre el estado base original (barras grises) y el estado modelado tras aplicar las políticas de descuento (barras en color). Se visualiza el vaciamiento sistemático de Miércoles (-50% facturas) y la sobrecarga en Martes (+48% unidades) y Viernes (+202% unidades, +144% recaudación).*
+* **Insight Clave para el Slide:**
+  * **Miércoles drenado:** Reducción exacta del **-50% en facturas** (-2.481 tickets) y **-44.5% en recaudación**, demostrando el desplazamiento forzado de clientes.
+  * **Viernes sobrecargado:** Aumento de **+202% en volumen de unidades** y **+144% en facturación**, transformándose artificialmente en un superpico operativo.
+  * **Martes optimizado:** Crecimiento del **+48% en unidades físicas**, saturando la reposición de góndolas.
+* **Notas del Orador:**  
+  *"Esta filmina resume cómo el modelo de ingeniería de datos y elasticidad simula el comportamiento humano: los clientes no compran más en promedio en la semana, sino que postergan o anticipan sus compras para los días de oferta, destruyendo la estabilidad del negocio e inflando artificialmente dos días a costa del resto."*
+* **Pregunta de Cierre:**  
+  *¿Queremos que nuestras promociones sigan desestabilizando la operación o preferimos un esquema predictivo que mantenga la afluencia constante?*
+
+---
+
 ## Síntesis de la Propuesta de Solución a Vender
 
 Para la última sección de la presentación (el *Pitch Comercial* de la consultoría / equipo de analítica), se recomienda presentar una propuesta estructurada en 3 pilares:
