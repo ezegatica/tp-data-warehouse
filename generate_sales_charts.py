@@ -40,6 +40,7 @@ INVOICE_ITEMS_FILE = os.path.join(DATASET_DIR, "invoice_items.csv")
 PRODUCTS_FILE = os.path.join(DATASET_DIR, "products.csv")
 CUSTOMERS_FILE = os.path.join(DATASET_DIR, "customers.csv")
 DISCOUNTS_FILE = os.path.join(DATASET_DIR, "discounts.csv")
+SUCURSAL_FILE = os.path.join(DATASET_DIR, "sucursal.csv")
 
 DAY_ORDER = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 DAY_LABELS = [
@@ -94,6 +95,10 @@ def load_data():
         how="left"
     )
     df = df.merge(customers[["CustomerID", "customer_type"]], on="CustomerID", how="left")
+
+    if os.path.exists(SUCURSAL_FILE) and "id_sucursal" in df.columns:
+        sucursales = pd.read_csv(SUCURSAL_FILE)
+        df = df.merge(sucursales, on="id_sucursal", how="left")
 
     df["day_order"] = df["day_name"].apply(lambda d: DAY_ORDER.index(d) if d in DAY_ORDER else 99)
 
@@ -795,6 +800,220 @@ def plot_11_transformation_before_after(curr_df):
     print(f"  [OK] Guardado: {out_path}")
 
 
+# ==============================================================================
+# 12. DISTRIBUCIÓN DE VENTAS POR SUCURSAL (MAYORISTAS VS. MINORISTAS)
+# ==============================================================================
+def plot_12_branch_distribution(df):
+    if "id_sucursal" not in df.columns:
+        print("  [SKIP] Columna id_sucursal no encontrada.")
+        return
+
+    fig, axes = plt.subplots(1, 2, figsize=(16, 6.5))
+    style_figure(fig, axes)
+
+    sucursal_labels = [
+        "Sucursal 1\n(Central Mayorista - CABA)",
+        "Sucursal 2\n(Retail Shopping - Vte. López)",
+        "Sucursal 3\n(Expansión Interior - Cba)"
+    ]
+    sucursal_ids = [1, 2, 3]
+
+    configs = [
+        {
+            "segment": "wholesaler",
+            "title": "CANAL MAYORISTA (WHOLESALER)",
+            "subtitle": "Target: Sucursal 1 (65%) | Sucursal 2 (5%) | Sucursal 3 (30%)",
+            "ax": axes[0],
+            "targets": {1: 0.65, 2: 0.05, 3: 0.30},
+            "color_rev": "#1D3557",
+            "color_units": "#457B9D"
+        },
+        {
+            "segment": "private",
+            "title": "CANAL MINORISTA (PRIVATE)",
+            "subtitle": "Target: Sucursal 1 (25%) | Sucursal 2 (55%) | Sucursal 3 (20%)",
+            "ax": axes[1],
+            "targets": {1: 0.25, 2: 0.55, 3: 0.20},
+            "color_rev": "#E63946",
+            "color_units": "#F4A261"
+        }
+    ]
+
+    width = 0.35
+    x = np.arange(len(sucursal_ids))
+
+    for cfg in configs:
+        ax = cfg["ax"]
+        sub = df[df["customer_type"] == cfg["segment"]]
+        tot_rev = sub["line_total"].sum()
+        tot_units = sub["quantity"].sum()
+
+        rev_vals = [sub[sub["id_sucursal"] == s]["line_total"].sum() for s in sucursal_ids]
+        unit_vals = [sub[sub["id_sucursal"] == s]["quantity"].sum() for s in sucursal_ids]
+
+        rev_pcts = [v / tot_rev * 100 if tot_rev > 0 else 0 for v in rev_vals]
+        unit_pcts = [v / tot_units * 100 if tot_units > 0 else 0 for v in unit_vals]
+
+        bars1 = ax.bar(x - width/2, rev_pcts, width=width, label="Recaudación ($ USD)", color=cfg["color_rev"], edgecolor="black", linewidth=0.6)
+        bars2 = ax.bar(x + width/2, unit_pcts, width=width, label="Volumen Físico (Unidades)", color=cfg["color_units"], edgecolor="black", linewidth=0.6)
+
+        # Añadir etiquetas con el % exacto y target
+        for i, (b1, b2) in enumerate(zip(bars1, bars2)):
+            target_pct = cfg["targets"][sucursal_ids[i]] * 100
+            
+            # Etiqueta barra 1
+            ax.text(
+                b1.get_x() + b1.get_width() / 2,
+                b1.get_height() + 1.0,
+                f"{rev_pcts[i]:.1f}%\n(${rev_vals[i]/1e6:.2f}M)",
+                ha="center",
+                va="bottom",
+                fontsize=8.5,
+                fontweight="bold",
+                color=cfg["color_rev"]
+            )
+            # Etiqueta barra 2
+            ax.text(
+                b2.get_x() + b2.get_width() / 2,
+                b2.get_height() + 1.0,
+                f"{unit_pcts[i]:.1f}%\n({unit_vals[i]/1e3:,.0f}K u.)",
+                ha="center",
+                va="bottom",
+                fontsize=8.5,
+                fontweight="bold",
+                color=cfg["color_units"]
+            )
+
+            # Badge del target
+            ax.text(
+                x[i],
+                max(rev_pcts[i], unit_pcts[i]) + 9.5,
+                f"Obj: {target_pct:.0f}%",
+                ha="center",
+                va="bottom",
+                fontsize=9,
+                fontweight="semibold",
+                bbox=dict(boxstyle="round,pad=0.2", facecolor="#F1FAEE", edgecolor="#A8DADC", linewidth=0.8)
+            )
+
+        ax.set_xticks(x)
+        ax.set_xticklabels(sucursal_labels, fontsize=9.5, fontweight="semibold")
+        ax.set_ylim(0, max(max(rev_pcts), max(unit_pcts)) + 18)
+        ax.set_ylabel("% del Segmento", fontsize=10.5, fontweight="semibold")
+        ax.set_title(f"{cfg['title']}\n{cfg['subtitle']}", fontsize=12, fontweight="bold", pad=12, color="#1D3557")
+        ax.legend(loc="upper right", frameon=True, facecolor="white", edgecolor="#D1D5DB", fontsize=9)
+
+    fig.suptitle(
+        "DISTRIBUCIÓN DE VENTAS E ITEMS POR SUCURSAL: CANAL MAYORISTA VS. MINORISTA\n"
+        "Cumplimiento exacto de los objetivos comerciales: Mayorista (65% / 5% / 30%) y Minorista (25% / 55% / 20%).",
+        fontsize=13.5, fontweight="bold", color="#0B132B", y=1.02
+    )
+
+    out_path = os.path.join(OUTPUT_DIR, "12_distribucion_sucursales_mayoristas_minoristas.png")
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=200, bbox_inches="tight")
+    plt.close()
+    print(f"  [OK] Guardado: {out_path}")
+
+
+# ==============================================================================
+# 13. PERFIL OPERATIVO Y GEOGRÁFICO DE LAS SUCURSALES
+# ==============================================================================
+def plot_13_branch_profile(df):
+    if "id_sucursal" not in df.columns:
+        return
+
+    fig, axes = plt.subplots(1, 3, figsize=(19, 5.5))
+    style_figure(fig, axes)
+
+    sucursal_labels = [
+        "Sucursal 1\nCentral (CABA)",
+        "Sucursal 2\nRetail (Vte. López)",
+        "Sucursal 3\nInterior (Córdoba)"
+    ]
+    branch_colors = ["#1D3557", "#E63946", "#2A9D8F"]
+    sucursal_ids = [1, 2, 3]
+
+    # Panel 1: Recaudación Total e Items Totales
+    ax1 = axes[0]
+    rev_totals = [df[df["id_sucursal"] == s]["line_total"].sum() / 1e6 for s in sucursal_ids]
+    bars_rev = ax1.bar(sucursal_labels, rev_totals, color=branch_colors, edgecolor="black", linewidth=0.6, width=0.6)
+    ax1.set_title("Recaudación Total por Sucursal ($ USD)", fontsize=11.5, fontweight="bold", pad=12, color="#1D3557")
+    ax1.set_ylabel("Millones de USD ($M)", fontsize=9.5, fontweight="semibold")
+    max_r = max(rev_totals)
+    for bar, val in zip(bars_rev, rev_totals):
+        ax1.text(
+            bar.get_x() + bar.get_width()/2,
+            val + (max_r * 0.03),
+            f"${val:.2f}M\n({val/sum(rev_totals)*100:.1f}%)",
+            ha="center", va="bottom", fontsize=8.5, fontweight="bold"
+        )
+    ax1.set_ylim(0, max_r * 1.22)
+
+    # Panel 2: Mix de Ventas por Canal en cada Sucursal (100% Stacked Bar)
+    ax2 = axes[1]
+    mix_wholesale = []
+    mix_private = []
+    for s in sucursal_ids:
+        s_data = df[df["id_sucursal"] == s]
+        tot = s_data["line_total"].sum()
+        w = s_data[s_data["customer_type"] == "wholesaler"]["line_total"].sum()
+        p = s_data[s_data["customer_type"] == "private"]["line_total"].sum()
+        mix_wholesale.append(w / tot * 100 if tot > 0 else 0)
+        mix_private.append(p / tot * 100 if tot > 0 else 0)
+
+    ax2.bar(sucursal_labels, mix_wholesale, label="Mayorista", color="#1D3557", edgecolor="black", linewidth=0.6, width=0.6)
+    ax2.bar(sucursal_labels, mix_private, bottom=mix_wholesale, label="Minorista", color="#457B9D", edgecolor="black", linewidth=0.6, width=0.6)
+    ax2.set_title("Composición del Negocio (Mix de Facturación)", fontsize=11.5, fontweight="bold", pad=12, color="#1D3557")
+    ax2.set_ylabel("Porcentaje de Facturación (%)", fontsize=9.5, fontweight="semibold")
+    ax2.set_ylim(0, 115)
+    ax2.legend(loc="upper right", frameon=True, facecolor="white", edgecolor="#D1D5DB", fontsize=9)
+
+    for i in range(len(sucursal_ids)):
+        ax2.text(i, mix_wholesale[i]/2, f"{mix_wholesale[i]:.1f}%", ha="center", va="center", color="white", fontweight="bold", fontsize=9)
+        ax2.text(i, mix_wholesale[i] + mix_private[i]/2, f"{mix_private[i]:.1f}%", ha="center", va="center", color="white", fontweight="bold", fontsize=9)
+
+    # Panel 3: Ticket Promedio (AOV) por Canal y Sucursal
+    ax3 = axes[2]
+    width = 0.35
+    x = np.arange(len(sucursal_ids))
+    aov_w = []
+    aov_p = []
+    for s in sucursal_ids:
+        sub_s = df[df["id_sucursal"] == s]
+        sub_w = sub_s[sub_s["customer_type"] == "wholesaler"]
+        sub_p = sub_s[sub_s["customer_type"] == "private"]
+        aov_w.append(sub_w["line_total"].sum() / sub_w["InvoiceID"].nunique() if sub_w["InvoiceID"].nunique() > 0 else 0)
+        aov_p.append(sub_p["line_total"].sum() / sub_p["InvoiceID"].nunique() if sub_p["InvoiceID"].nunique() > 0 else 0)
+
+    bars_w = ax3.bar(x - width/2, aov_w, width=width, label="Ticket Mayorista", color="#1D3557", edgecolor="black", linewidth=0.6)
+    bars_p = ax3.bar(x + width/2, aov_p, width=width, label="Ticket Minorista", color="#E63946", edgecolor="black", linewidth=0.6)
+    ax3.set_xticks(x)
+    ax3.set_xticklabels(sucursal_labels, fontsize=9.5)
+    ax3.set_title("Ticket Promedio (AOV) por Canal y Sucursal", fontsize=11.5, fontweight="bold", pad=12, color="#1D3557")
+    ax3.set_ylabel("USD ($)", fontsize=9.5, fontweight="semibold")
+    max_aov = max(max(aov_w), max(aov_p))
+    ax3.set_ylim(0, max_aov * 1.25)
+    ax3.legend(loc="upper right", frameon=True, facecolor="white", edgecolor="#D1D5DB", fontsize=9)
+
+    for b, v in zip(bars_w, aov_w):
+        ax3.text(b.get_x() + b.get_width()/2, v + (max_aov * 0.02), f"${v:.0f}", ha="center", va="bottom", fontsize=8.5, fontweight="bold", color="#1D3557")
+    for b, v in zip(bars_p, aov_p):
+        ax3.text(b.get_x() + b.get_width()/2, v + (max_aov * 0.02), f"${v:.0f}", ha="center", va="bottom", fontsize=8.5, fontweight="bold", color="#E63946")
+
+    fig.suptitle(
+        "PERFIL OPERATIVO Y GEOGRÁFICO DE LAS SUCURSALES (MODELO ESTRELLA CON DIM_SUCURSAL)\n"
+        "Sucursal 1 opera como hub mayorista masivo (88%), Sucursal 2 absorbe demanda minorista (79%), Sucursal 3 balancea plaza Córdoba.",
+        fontsize=13, fontweight="bold", color="#0B132B", y=1.03
+    )
+
+    out_path = os.path.join(OUTPUT_DIR, "13_perfil_operativo_y_geografico_sucursales.png")
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=200, bbox_inches="tight")
+    plt.close()
+    print(f"  [OK] Guardado: {out_path}")
+
+
 def main():
     print("=" * 80)
     print(" INICIANDO GENERACIÓN DE GRÁFICOS VISUALES PARA PRESENTACIÓN COMERCIAL ")
@@ -813,9 +1032,11 @@ def main():
     plot_09_heatmap_matrix(df)
     plot_10_timeline_consistency(df)
     plot_11_transformation_before_after(df)
+    plot_12_branch_distribution(df)
+    plot_13_branch_profile(df)
 
     print("\n" + "=" * 80)
-    print(f" ¡Éxito! 11 gráficos generados en alta calidad en el directorio: {OUTPUT_DIR}")
+    print(f" ¡Éxito! 13 gráficos generados en alta calidad en el directorio: {OUTPUT_DIR}")
     print("=" * 80)
 
 

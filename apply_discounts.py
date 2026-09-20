@@ -289,7 +289,10 @@ def transform_data(dry_run=False):
     if not dry_run:
         print("\nGuardando cambios en los archivos CSV...")
         # Guardar purchases.csv
-        df_out_purchases = df[["InvoiceID", "date", "CustomerID", "product_id", "quantity"]].copy()
+        cols_purchases = ["InvoiceID", "date", "CustomerID", "product_id", "quantity"]
+        if "id_sucursal" in df.columns:
+            cols_purchases.append("id_sucursal")
+        df_out_purchases = df[cols_purchases].copy()
         df_out_purchases["date"] = df_out_purchases["date"].dt.strftime("%Y-%m-%d")
         df_out_purchases.to_csv(PURCHASES_FILE, index=False)
         print(f"Actualizado: {PURCHASES_FILE} ({len(df_out_purchases):,} filas)")

@@ -65,6 +65,30 @@ const TABLES = [
     `,
   },
   {
+    file: "sucursal.csv",
+    table: "sucursal",
+    ddl: `
+      CREATE TABLE IF NOT EXISTS sucursal (
+        id_sucursal INTEGER PRIMARY KEY,
+        des_sucursal TEXT NOT NULL,
+        id_provincia INTEGER NOT NULL,
+        des_provincia TEXT NOT NULL,
+        id_localidad INTEGER NOT NULL,
+        des_localidad TEXT NOT NULL
+      )
+    `,
+    upsertQuery: (table, staging) => `
+      INSERT INTO ${table} (id_sucursal, des_sucursal, id_provincia, des_provincia, id_localidad, des_localidad)
+      SELECT id_sucursal, des_sucursal, id_provincia, des_provincia, id_localidad, des_localidad FROM ${staging}
+      ON CONFLICT (id_sucursal) DO UPDATE
+      SET des_sucursal = EXCLUDED.des_sucursal,
+          id_provincia = EXCLUDED.id_provincia,
+          des_provincia = EXCLUDED.des_provincia,
+          id_localidad = EXCLUDED.id_localidad,
+          des_localidad = EXCLUDED.des_localidad;
+    `,
+  },
+  {
     file: "purchases.csv",
     table: "purchases",
     ddl: `
@@ -73,16 +97,18 @@ const TABLES = [
         date DATE NOT NULL,
         "CustomerID" INTEGER NOT NULL,
         product_id INTEGER NOT NULL,
-        quantity INTEGER NOT NULL
+        quantity INTEGER NOT NULL,
+        id_sucursal INTEGER NOT NULL
       );
       CREATE INDEX IF NOT EXISTS idx_purchases_invoice ON purchases ("InvoiceID");
+      CREATE INDEX IF NOT EXISTS idx_purchases_sucursal ON purchases (id_sucursal);
     `,
     upsertQuery: (table, staging) => `
       DELETE FROM ${table}
       WHERE "InvoiceID" IN (SELECT DISTINCT "InvoiceID" FROM ${staging});
 
-      INSERT INTO ${table} ("InvoiceID", date, "CustomerID", product_id, quantity)
-      SELECT "InvoiceID", date, "CustomerID", product_id, quantity FROM ${staging};
+      INSERT INTO ${table} ("InvoiceID", date, "CustomerID", product_id, quantity, id_sucursal)
+      SELECT "InvoiceID", date, "CustomerID", product_id, quantity, id_sucursal FROM ${staging};
     `,
   },
   {

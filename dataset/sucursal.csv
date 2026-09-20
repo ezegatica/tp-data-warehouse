@@ -1,0 +1,4 @@
+id_sucursal,des_sucursal,id_provincia,des_provincia,id_localidad,des_localidad
+1,Sucursal 1 - Central Mayorista,1,Buenos Aires,101,CABA
+2,Sucursal 2 - Retail Shopping,1,Buenos Aires,102,Vicente López
+3,Sucursal 3 - Expansión Interior,2,Córdoba,201,Córdoba Capital

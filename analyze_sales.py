@@ -218,6 +218,46 @@ def analyze_top_categories_by_promo(df):
         print(f"{cat:<35} | {promo_rev:<22} | {no_promo:<18} | {pct:<15}")
 
 
+def analyze_sucursales(df):
+    section_header("6. Distribución de Ventas por Sucursal y Canal (Mayorista vs. Minorista)")
+    sucursal_file = os.path.join(DATASET_DIR, "sucursal.csv")
+    if os.path.exists(sucursal_file) and "id_sucursal" in df.columns:
+        sucursales = pd.read_csv(sucursal_file)
+        df_suc = df.merge(sucursales, on="id_sucursal", how="left")
+    else:
+        df_suc = df
+
+    if "id_sucursal" not in df_suc.columns:
+        print("Columna id_sucursal no encontrada en el dataset.")
+        return
+
+    targets = {
+        "wholesaler": {1: "65.0%", 2: "5.0%", 3: "30.0%"},
+        "private":    {1: "25.0%", 2: "55.0%", 3: "20.0%"}
+    }
+
+    for c_type in ["wholesaler", "private"]:
+        sub = df_suc[df_suc["customer_type"] == c_type]
+        tot_rev = sub["line_total"].sum()
+        tot_it = sub["quantity"].sum()
+
+        label = "MAYORISTA (WHOLESALER)" if c_type == "wholesaler" else "MINORISTA (PRIVATE)"
+        print(f"\n--- Segmento: {label} ---")
+        print(f"{'Sucursal':<32} | {'Target':<10} | {'Recaudación':<15} | {'% Rec.':<8} | {'Items':<12} | {'% Items':<8}")
+        print("-" * 32 + "-+-" + "-" * 10 + "-+-" + "-" * 15 + "-+-" + "-" * 8 + "-+-" + "-" * 12 + "-+-" + "-" * 8)
+
+        for suc_id in [1, 2, 3]:
+            suc_data = sub[sub["id_sucursal"] == suc_id]
+            rev = suc_data["line_total"].sum()
+            it = suc_data["quantity"].sum()
+            rev_pct = (rev / tot_rev * 100) if tot_rev > 0 else 0
+            it_pct = (it / tot_it * 100) if tot_it > 0 else 0
+            suc_name = suc_data["des_sucursal"].iloc[0] if "des_sucursal" in suc_data.columns and len(suc_data) > 0 else f"Sucursal {suc_id}"
+            target_pct = targets[c_type].get(suc_id, "N/A")
+
+            print(f"{suc_name:<32} | {target_pct:<10} | ${rev:>13,.2f} | {rev_pct:>6.2f}% | {it:>10,} | {it_pct:>6.2f}%")
+
+
 def main():
     df = load_integrated_dataset()
     daily = analyze_weekly_distribution(df)
@@ -225,6 +265,7 @@ def main():
     analyze_customer_segmentation(df)
     analyze_top_categories_by_promo(df)
     analyze_operational_bottlenecks(daily)
+    analyze_sucursales(df)
     print("\n" + "=" * 90)
     print(" Análisis finalizado exitosamente. Listo para presentar a clientes y directivos. ")
     print("=" * 90 + "\n")
@@ -232,3 +273,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
