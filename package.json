@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "upload": "node popular.js",
+    "popular": "node popular.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {

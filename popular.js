@@ -100,6 +100,7 @@ const TABLES = [
         quantity INTEGER NOT NULL,
         id_sucursal INTEGER NOT NULL
       );
+      ALTER TABLE purchases ADD COLUMN IF NOT EXISTS id_sucursal INTEGER;
       CREATE INDEX IF NOT EXISTS idx_purchases_invoice ON purchases ("InvoiceID");
       CREATE INDEX IF NOT EXISTS idx_purchases_sucursal ON purchases (id_sucursal);
     `,
